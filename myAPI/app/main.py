@@ -2,6 +2,7 @@
 from fastapi import FastAPI, status, HTTPException
 import asyncio
 from typing import Optional
+from pydantic import BaseModel, Field
 
 #Inicializacion o Instacia de la API
 app= FastAPI(
@@ -12,11 +13,17 @@ app= FastAPI(
 
 #BD Ficticia
 usuarios=[
-    {"id":1,"Nombre":"Frosty","Edad":21},
-    {"id":2,"Nombre":"Jack","Edad":15},
-    {"id":3,"Nombre":"Rubio","Edad":28},
+    {"id":1,"nombre":"frosty","edad":21},
+    {"id":2,"nombre":"jack","edad":15},
+    {"id":3,"nombre":"rubio","edad":28},
 ]
 
+
+#Modelo de Validacion Pydantic
+class UsuarioBase(BaseModel):
+    id: int = Field(...,gt=0,description="Identificador de Usuario", example="1" )
+    nombre: str = Field(...,min_length=3,max_length=50,description="Nombre del usuario")
+    edad: int = Field(...,ge=0,le=121,description="Edad valida entre 0 y 121")
 
 #Endpoints
 @app.get("/",tags=['Inicio'])
@@ -49,7 +56,8 @@ async def consultaOp(id: Optional[int]=None):
     else:
         return { "Aviso":"No se proporciono ID" }
 
-@app.get("/v1/usuarios/{id}", tags=['CRUD Usuarios'])
+    
+@app.get("/v1/usuarios/", tags=['CRUD Usuarios'])
 async def consultaUsuarios():
     return{
         "status":"200",
@@ -57,10 +65,18 @@ async def consultaUsuarios():
         "data":usuarios
     }
     
-@app.post("/v1/usuarios/{id}", tags=['CRUD Usuarios'])
-async def agregar_usuarios(usuario:dict):
+@app.get("/v1/usuarios/{id}")
+async def obtener_usuario(id: int):
+    for usuario in usuarios:
+        if usuario["id"] == id:
+            return usuario
+
+    raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+@app.post("/v1/usuarios/", tags=['CRUD Usuarios'])
+async def agregar_usuarios(usuario:UsuarioBase):
     for usr in usuarios:
-        if usr["id"] == usuario.get("id"):
+        if usr["id"] == usuario.id:
             raise HTTPException(
                 status_code=400,
                 detail= "El id ya existe"
@@ -71,7 +87,8 @@ async def agregar_usuarios(usuario:dict):
         "datos":usuario,
         "status":"200"
     }
-    
+
+
 @app.put("/v1/usuarios/{id}", tags=['CRUD Usuarios'])
 async def actualizar_usuarios(id: int, usuario_actualizado: dict):
     for index, usr in enumerate(usuarios):
