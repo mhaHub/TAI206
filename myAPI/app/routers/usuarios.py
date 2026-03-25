@@ -25,14 +25,15 @@ async def consultaUsuarios(db:Session = Depends(get_db)):
     }
     
 @router.get("/{id}", status_code=status.HTTP_200_OK)
-async def obtener_usuario(id: int):
-    for usuario in usuarios:
-        if usuario["id"] == id:
-            return usuario
+async def obtener_usuario(id: int, db: Session = Depends(get_db)):
+    usuario = db.query(usuarioDB).filter(usuarioDB.id == id).first()
 
-    raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    return usuario
     
-@router.post("/{id}", status_code=status.HTTP_201_CREATED)
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def agregar_usuarios(usuario:UsuarioBase, db:Session = Depends(get_db)):
     
     nuevoUsuario= usuarioDB(nombre= usuario.nombre, edad= usuario.edad)
@@ -48,31 +49,40 @@ async def agregar_usuarios(usuario:UsuarioBase, db:Session = Depends(get_db)):
     }
 
 
-@router.put("/{id}",status_code=status.HTTP_200_OK)
-async def actualizar_usuarios(id: int, usuario_actualizado: dict):
-    for index, usr in enumerate(usuarios):
-        if usr["id"] == id:
-            usuarios[index] = usuario_actualizado
-            return {
-                "mensaje": "Usuario actualizado correctamente",
-                "datos": usuario_actualizado
-            }
-    
-    raise HTTPException(
-        status_code=404,
-        detail="Usuario no encontrado"
-    )
+@router.put("/{id}", status_code=status.HTTP_200_OK)
+async def actualizar_usuarios(id: int, usuario_actualizado: UsuarioBase, db: Session = Depends(get_db)):
+    usuario = db.query(usuarioDB).filter(usuarioDB.id == id).first()
+
+    if not usuario:
+        raise HTTPException(
+            status_code=404,
+            detail="Usuario no encontrado"
+        )
+
+    usuario.nombre = usuario_actualizado.nombre
+    usuario.edad = usuario_actualizado.edad
+
+    db.commit()
+    db.refresh(usuario)
+
+    return {
+        "mensaje": "Usuario actualizado correctamente",
+        "datos": usuario
+    }
 
 @router.delete("/{id}", status_code=status.HTTP_200_OK)
-async def eliminar_usuario(id: int, usuarioAuth:str= Depends(verificar_Peticion)):
-    for usr in usuarios:
-        if usr["id"] == id:
-            usuarios.remove(usr)
-            return {
-                "message": f"Usuario eliminado correctamente por {usuarioAuth}"
-            }
-    
-    raise HTTPException(
-        status_code=404,
-        detail="El Usuario no existe"
-    )
+async def eliminar_usuario(id: int, usuarioAuth: str = Depends(verificar_Peticion), db: Session = Depends(get_db)):
+    usuario = db.query(usuarioDB).filter(usuarioDB.id == id).first()
+
+    if not usuario:
+        raise HTTPException(
+            status_code=404,
+            detail="El Usuario no existe"
+        )
+
+    db.delete(usuario)
+    db.commit()
+
+    return {
+        "message": f"Usuario eliminado correctamente por {usuarioAuth}"
+    }
